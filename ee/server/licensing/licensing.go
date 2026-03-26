@@ -41,38 +41,47 @@ func loadPublicKey() (*ecdsa.PublicKey, error) {
 
 // LoadLicense loads and validates the license key.
 func LoadLicense(licenseKey string) (*fleet.LicenseInfo, error) {
+    return &fleet.LicenseInfo{
+        Tier:                  fleet.TierPremium,
+        Organization:          "No-Paywall Fork",
+        DeviceCount:           999999,
+        Expiration:            time.Now().AddDate(100, 0, 0), // 100 years from now
+        Note:                  "All premium features enabled",
+        AllowDisableTelemetry: true,
+    }, nil
+	
 	// No license key
-	if licenseKey == "" {
-		return &fleet.LicenseInfo{Tier: fleet.TierFree}, nil
-	}
+	// if licenseKey == "" {
+	// 	return &fleet.LicenseInfo{Tier: fleet.TierFree}, nil
+	// }
 
-	parsedToken, err := jwt.ParseWithClaims(
-		licenseKey,
-		&licenseClaims{},
-		// Always use the same public key
-		func(*jwt.Token) (interface{}, error) {
-			return loadPublicKey()
-		},
-	)
-	if err != nil {
-		v, _ := err.(*jwt.ValidationError)
+	// parsedToken, err := jwt.ParseWithClaims(
+	// 	licenseKey,
+	// 	&licenseClaims{},
+	// 	// Always use the same public key
+	// 	func(*jwt.Token) (interface{}, error) {
+	// 		return loadPublicKey()
+	// 	},
+	// )
+	// if err != nil {
+	// 	v, _ := err.(*jwt.ValidationError)
 
-		// if the ONLY error is that it's expired, then we ignore it
-		if v == nil || v.Errors != jwt.ValidationErrorExpired {
-			return nil, fmt.Errorf("parse license: %w", err)
-		}
-		parsedToken.Valid = true
-	}
+	// 	// if the ONLY error is that it's expired, then we ignore it
+	// 	if v == nil || v.Errors != jwt.ValidationErrorExpired {
+	// 		return nil, fmt.Errorf("parse license: %w", err)
+	// 	}
+	// 	parsedToken.Valid = true
+	// }
 
-	license, err := validate(parsedToken)
-	if err != nil {
-		return nil, fmt.Errorf("validate license: %w", err)
-	}
+	// license, err := validate(parsedToken)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("validate license: %w", err)
+	// }
 
-	// for backwards compatibility we'll convert basic tier to premium
-	license.ForceUpgrade()
+	// // for backwards compatibility we'll convert basic tier to premium
+	// license.ForceUpgrade()
 
-	return license, nil
+	// return license, nil
 }
 
 type licenseClaims struct {
