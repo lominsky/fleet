@@ -9,7 +9,7 @@ RUN mkdir -p /output
 WORKDIR /usr/src/fleet
 
 COPY orbit ./orbit
-COPY ee/pkg ./ee/pkg
+COPY ee ./ee
 COPY server ./server
 COPY frontend ./frontend
 COPY pkg ./pkg
