@@ -21,15 +21,8 @@ COPY go.mod go.sum ./
 # 1. Download dependencies
 RUN go mod download
 
-# 1. Install the generate tool (if not already in the image)
-RUN go install github.com/kevinburke/go-bindata/go-bindata@latest
-
-# 2. Generate the assets
-# This command converts the frontend files into Go source code
-RUN make generate-assets || go generate ./server/bindata/...
-
 # 2. Build the app
-RUN go build -o /usr/bin/fleet ./cmd/fleet
+RUN go build -o /usr/bin/fleet -tags "bindata" ./cmd/fleet
 
 # 3. Run the app
 # EXPOSE 8080
