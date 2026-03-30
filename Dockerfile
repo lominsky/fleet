@@ -11,7 +11,7 @@ WORKDIR /usr/src/fleet
 COPY orbit ./orbit
 COPY ee/pkg ./ee/pkg
 COPY server ./server
-COPY client ./client
+COPY frontend ./frontend
 COPY pkg ./pkg
 COPY ./third_party ./third_party
 COPY go.mod go.sum ./
