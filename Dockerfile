@@ -27,3 +27,5 @@ RUN go build -o /usr/bin/fleet ./cmd/fleet
 # 3. Run the app
 # EXPOSE 8080
 # CMD ["fleet", "serve"]
+
+CMD /bin/bash
