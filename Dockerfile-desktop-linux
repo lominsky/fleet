@@ -5,9 +5,11 @@ RUN apt-get update && apt-get install -y musl-tools && rm -rf /var/lib/apt/lists
 
 RUN mkdir -p /usr/src/fleet
 RUN mkdir -p /output
+RUN mkdir -p /usr/bin/fleet
 
 WORKDIR /usr/src/fleet
 
+COPY cmd ./cmd
 COPY orbit ./orbit
 COPY server ./server
 COPY ee ./ee
@@ -15,4 +17,12 @@ COPY pkg ./pkg
 COPY ./third_party ./third_party
 COPY go.mod go.sum ./
 
-CMD /bin/bash
+# 1. Download dependencies
+RUN go mod download
+
+# 2. Build the app
+RUN go build -o /usr/bin/fleet ./cmd/fleet
+
+# 3. Run the app
+EXPOSE 8080
+CMD ["fleet", "serve"]
