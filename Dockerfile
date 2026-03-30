@@ -8,6 +8,7 @@ RUN mkdir -p /output
 
 WORKDIR /usr/src/fleet
 
+COPY cmd ./cmd
 COPY orbit ./orbit
 COPY ee ./ee
 COPY server ./server
@@ -16,4 +17,13 @@ COPY pkg ./pkg
 COPY ./third_party ./third_party
 COPY go.mod go.sum ./
 
-CMD /bin/bash
+# CMD /bin/bash
+# 1. Download dependencies
+RUN go mod download
+
+# 2. Build the app
+RUN go build -o /usr/bin/fleet ./cmd/fleet
+
+# 3. Run the app
+EXPOSE 8080
+CMD ["fleet", "serve"]
