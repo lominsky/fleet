@@ -1,11 +1,13 @@
 # --- STAGE 1: Build Frontend ---
 FROM node:18-slim AS frontend-builder
-# Set Node options to limit heap memory
-ENV NODE_OPTIONS="--max-old-space-size=1536"
 WORKDIR /usr/src/fleet
+
+# Copy only the frontend files first to keep the cache clean
 COPY frontend/ ./frontend/
-# Use 'npm ci' instead of 'install' for faster, more stable builds
-RUN cd frontend && npm ci && npm run build
+
+RUN cd frontend && \
+    npm install --network-timeout=100000 && \
+    npm run build
 
 # --- STAGE 2: Build Go Binary ---
 FROM golang:1.23-bookworm
