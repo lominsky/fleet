@@ -1,27 +1,27 @@
-FROM golang:1.23-bookworm
-LABEL maintainer="Fleet Developers"
+# --- STAGE 1: Build Frontend ---
+FROM node:18-slim AS frontend-builder
+WORKDIR /usr/src/fleet
+COPY frontend/ ./frontend/
+# Fleet's frontend build usually lives in the frontend directory
+RUN cd frontend && npm install && npm run build
 
-# 1. Install build dependencies
-RUN apt-get update && apt-get install -y musl-tools git nodejs npm && rm -rf /var/lib/apt/lists/*
+# --- STAGE 2: Build Go Binary ---
+FROM golang:1.23-bookworm
+RUN apt-get update && apt-get install -y musl-tools git && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/fleet
 
-# 2. Copy source code
+# Copy everything from your repo
 COPY . .
 
-# 3. Build the Frontend (Crucial to prevent the 'Assets' panic)
-# Fleet requires the frontend to be compiled into Go files first
-RUN cd frontend && npm install && npm run build
-RUN go install github.com/kevinburke/go-bindata/go-bindata@latest
-RUN go generate ./server/bindata/...
+# Copy the compiled assets from STAGE 1 into the Go source tree
+COPY --from=frontend-builder /usr/src/fleet/frontend/dist ./server/bindata/
 
-# 4. Download Go dependencies
-RUN go mod download
-
-# 5. Build the app with the bindata tag
+# Build the Go binary using the bindata tag
 RUN go build -o /usr/bin/fleet -tags "bindata" ./cmd/fleet
 
-# 6. Set up the entrypoint
-# This prepares the DB and then starts the server
-# EXPOSE 8080
+# --- STAGE 3: Final Execution ---
+EXPOSE 8080
+
+# This is the magic command that sets up your DB and starts the app
 CMD ["sh", "-c", "/usr/bin/fleet prepare db --no-prompt && /usr/bin/fleet serve"]
