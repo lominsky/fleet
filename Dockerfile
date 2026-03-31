@@ -1,31 +1,31 @@
-# --- STAGE 1: Build Frontend ---
-FROM node:18-slim AS frontend-builder
-WORKDIR /usr/src/fleet
+FROM --platform=linux/amd64 golang:1.26.1-trixie@sha256:96b28783b99bcd265fbfe0b36a3ac6462416ce6bf1feac85d4c4ff533cbaa473
+LABEL maintainer="Fleet Developers"
 
-# Copy only the frontend files first to keep the cache clean
-COPY frontend/ ./frontend/
+RUN apt-get update && apt-get install -y musl-tools && rm -rf /var/lib/apt/lists/*
 
-RUN cd frontend && \
-    npm install --network-timeout=100000 && \
-    npm run build
-
-# --- STAGE 2: Build Go Binary ---
-FROM golang:1.23-bookworm
-RUN apt-get update && apt-get install -y musl-tools git && rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /usr/src/fleet
+RUN mkdir -p /output
 
 WORKDIR /usr/src/fleet
 
-# Copy everything from your repo
-COPY . .
+COPY cmd ./cmd
+COPY orbit ./orbit
+COPY ee ./ee
+COPY server ./server
+COPY frontend ./frontend
+COPY pkg ./pkg
+COPY ./third_party ./third_party
+COPY go.mod go.sum ./
 
-# Copy the compiled assets from STAGE 1 into the Go source tree
-COPY --from=frontend-builder /usr/src/fleet/frontend/dist ./server/bindata/
+# CMD /bin/bash
+# 1. Download dependencies
+RUN go mod download
 
-# Build the Go binary using the bindata tag
+# 2. Build the app
 RUN go build -o /usr/bin/fleet -tags "bindata" ./cmd/fleet
 
-# --- STAGE 3: Final Execution ---
-EXPOSE 8080
+# 3. Run the app
+# EXPOSE 8080
+# CMD ["fleet", "serve"]
 
-# This is the magic command that sets up your DB and starts the app
-CMD ["sh", "-c", "/usr/bin/fleet prepare db --no-prompt && /usr/bin/fleet serve"]
+CMD /bin/bash
