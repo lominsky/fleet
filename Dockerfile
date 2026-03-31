@@ -1,31 +1,27 @@
-FROM --platform=linux/amd64 golang:1.26.1-trixie@sha256:96b28783b99bcd265fbfe0b36a3ac6462416ce6bf1feac85d4c4ff533cbaa473
+FROM golang:1.23-bookworm
 LABEL maintainer="Fleet Developers"
 
-RUN apt-get update && apt-get install -y musl-tools && rm -rf /var/lib/apt/lists/*
-
-RUN mkdir -p /usr/src/fleet
-RUN mkdir -p /output
+# 1. Install build dependencies
+RUN apt-get update && apt-get install -y musl-tools git nodejs npm && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/fleet
 
-COPY cmd ./cmd
-COPY orbit ./orbit
-COPY ee ./ee
-COPY server ./server
-COPY frontend ./frontend
-COPY pkg ./pkg
-COPY ./third_party ./third_party
-COPY go.mod go.sum ./
+# 2. Copy source code
+COPY . .
 
-# CMD /bin/bash
-# 1. Download dependencies
+# 3. Build the Frontend (Crucial to prevent the 'Assets' panic)
+# Fleet requires the frontend to be compiled into Go files first
+RUN cd frontend && npm install && npm run build
+RUN go install github.com/kevinburke/go-bindata/go-bindata@latest
+RUN go generate ./server/bindata/...
+
+# 4. Download Go dependencies
 RUN go mod download
 
-# 2. Build the app
+# 5. Build the app with the bindata tag
 RUN go build -o /usr/bin/fleet -tags "bindata" ./cmd/fleet
 
-# 3. Run the app
+# 6. Set up the entrypoint
+# This prepares the DB and then starts the server
 # EXPOSE 8080
-# CMD ["fleet", "serve"]
-
-CMD /bin/bash
+CMD ["sh", "-c", "/usr/bin/fleet prepare db --no-prompt && /usr/bin/fleet serve"]
