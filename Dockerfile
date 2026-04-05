@@ -1,13 +1,14 @@
 # Stage 1: Build the binary
 FROM golang:1.26.1-alpine AS builder
 
-RUN apk add --no-cache make git nodejs npm
+RUN apk add --no-cache make git nodejs npm python3 g++
 
 WORKDIR /app
 COPY . .
 
 # 1. Install frontend dependencies and build the assets
 # This creates the 'bindata' files that the Go compiler is panicking about missing
+RUN make deps-js
 RUN make assets
 
 # 2. Build the fleet binary with the bundled assets
