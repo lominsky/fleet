@@ -1,39 +1,39 @@
-# STAGE 1: Build the React Frontend
-FROM node:20-alpine AS frontend-builder
-RUN apk add --no-cache make g++ python3 git libtool autoconf automake nasm
-WORKDIR /app
-COPY . .
+# STAGE 1: Extract the "Good" Assets
+# We use the official image as a "parts bin"
+FROM fleetdm/fleet:latest AS official-fleet
 
-# 1. Install dependencies
-RUN npm install --legacy-peer-deps
+# STAGE 2: Build YOUR Custom Backend
+FROM golang:1.23-alpine AS builder
 
-# 2. Increase Node memory limit and run the build
-# We use 'npx' to ensure it uses the local gulp/webpack version
-ENV NODE_OPTIONS="--max-old-space-size=4096"
-RUN npx gulp default || npm run build
-
-# STAGE 2: Build the Go Backend
-FROM golang:1.26-alpine AS backend-builder
+# 1. Install Go build tools
 RUN apk add --no-cache make git
+
 WORKDIR /app
 COPY . .
-# Copy the built assets from Stage 1
-COPY --from=frontend-builder /app/assets ./assets
-# Install go-bindata and bundle the assets into the Go source
-RUN go install github.com/kevinburke/go-bindata/go-bindata@latest
-RUN /go/bin/go-bindata -o server/bindata/bindata.go -pkg bindata assets/...
-# Build your custom binary
+
+# 2. THE SECRET SAUCE: 
+# Replace your local 'placeholder.go' with the actual compiled UI assets 
+# from the official image. This stops the "Assets may not be used..." panic.
+COPY --from=official-fleet /app/server/bindata/bindata.go ./server/bindata/bindata.go
+
+# 3. Build YOUR custom binary
+# The compiler will now see the real UI assets instead of the placeholder
 RUN go build -o fleet ./cmd/fleet
 
 # STAGE 3: Final Production Image
 FROM alpine:latest
 RUN apk add --no-cache ca-certificates
-# Match your Synology user ID
+
+# Match your Synology UID (1026) to avoid permission errors
 RUN adduser -D -u 1026 fleet
 WORKDIR /home/fleet
-COPY --from=backend-builder /app/fleet /usr/bin/fleet
-# Ensure it can write to logs if you still use them
+
+COPY --from=builder /app/fleet /usr/bin/fleet
+RUN chmod +x /usr/bin/fleet
+
+# Ensure logging directory exists for the container
 RUN mkdir -p /logs && chown -R 1026 /logs
+
 USER 1026
 ENTRYPOINT ["/usr/bin/fleet"]
 CMD ["serve"]
