@@ -1,43 +1,34 @@
-# Stage 1: Build the binary
-FROM golang:1.26.1-alpine AS builder
-
-# Install the "Build Essential" equivalents for Alpine
-RUN apk add --no-cache \
-    make git nodejs npm python3 g++ gcc libc-dev linux-headers \
-    libtool automake autoconf nasm
-
+# STAGE 1: Build the React Frontend
+FROM node:20-alpine AS frontend-builder
+RUN apk add --no-cache make g++ python3 git libtool autoconf automake nasm
 WORKDIR /app
 COPY . .
-
-# 1. Fleet's frontend often requires --legacy-peer-deps to handle 
-# version conflicts in its React components.
+# Using --legacy-peer-deps is vital for Fleet's older React dependencies
 RUN npm install --legacy-peer-deps
+RUN npm run build 
 
-# 2. Generate the assets. Note: Fleet usually uses 'make assets' 
-# which calls a specialized internal tool.
-RUN make assets
-
-# 3. Build the Go binary
+# STAGE 2: Build the Go Backend
+FROM golang:1.26-alpine AS backend-builder
+RUN apk add --no-cache make git
+WORKDIR /app
+COPY . .
+# Copy the built assets from Stage 1
+COPY --from=frontend-builder /app/assets ./assets
+# Install go-bindata and bundle the assets into the Go source
+RUN go install github.com/kevinburke/go-bindata/go-bindata@latest
+RUN /go/bin/go-bindata -o server/bindata/bindata.go -pkg bindata assets/...
+# Build your custom binary
 RUN go build -o fleet ./cmd/fleet
 
-# Stage 2: Create the final image
+# STAGE 3: Final Production Image
 FROM alpine:latest
-
-# Define build arguments for UID/GID
-ARG USER_ID=1000
-ARG GROUP_ID=1000
-
-# Create the group and user with specific IDs
-RUN addgroup -g ${GROUP_ID} fleet && \
-    adduser -D -u ${USER_ID} -G fleet fleet && \
-    mkdir -p /logs /data /vulndb && \
-    chown -R fleet:fleet /logs /data /vulndb
-
-USER fleet
+RUN apk add --no-cache ca-certificates
+# Match your Synology user ID
+RUN adduser -D -u 1026 fleet
 WORKDIR /home/fleet
-
-# 3. Copy the binary
-COPY --from=builder /app/fleet /usr/bin/fleet
-
-# 4. Set the entrypoint
-CMD ["fleet", "serve"]
+COPY --from=backend-builder /app/fleet /usr/bin/fleet
+# Ensure it can write to logs if you still use them
+RUN mkdir -p /logs && chown -R 1026 /logs
+USER 1026
+ENTRYPOINT ["/usr/bin/fleet"]
+CMD ["serve"]
