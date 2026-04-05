@@ -1,31 +1,14 @@
-FROM --platform=linux/amd64 golang:1.26.1-trixie@sha256:96b28783b99bcd265fbfe0b36a3ac6462416ce6bf1feac85d4c4ff533cbaa473
+FROM alpine:3.23.3@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659
 LABEL maintainer="Fleet Developers"
 
-RUN apt-get update && apt-get install -y musl-tools && rm -rf /var/lib/apt/lists/*
+RUN apk --update add ca-certificates
+RUN apk --no-cache add jq
 
-RUN mkdir -p /usr/src/fleet
-RUN mkdir -p /output
+# Create fleet group and user
+RUN addgroup -S fleet && adduser -S fleet -G fleet
 
-WORKDIR /usr/src/fleet
+USER fleet
 
-COPY cmd ./cmd
-COPY orbit ./orbit
-COPY ee ./ee
-COPY server ./server
-COPY frontend ./frontend
-COPY pkg ./pkg
-COPY ./third_party ./third_party
-COPY go.mod go.sum ./
+COPY fleet /usr/bin/
 
-# CMD /bin/bash
-# 1. Download dependencies
-RUN go mod download
-
-# 2. Build the app
-RUN go build -o /usr/bin/fleet -tags "bindata" ./cmd/fleet
-
-# 3. Run the app
-# EXPOSE 8080
-# CMD ["fleet", "serve"]
-
-CMD /bin/bash
+CMD ["fleet", "serve"]
