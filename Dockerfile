@@ -1,17 +1,17 @@
 # Stage 1: Build the binary
 FROM golang:1.26.1-alpine AS builder
 
-# Install build dependencies
-RUN apk add --no-cache make git
+RUN apk add --no-cache make git nodejs npm
 
 WORKDIR /app
-
-# Copy the source code
 COPY . .
 
-# Compile the fleet binary
-# Note: You might need to adjust this depending on Fleet's specific build flags
-RUN go build -o fleet ./cmd/fleet
+# 1. Install frontend dependencies and build the assets
+# This creates the 'bindata' files that the Go compiler is panicking about missing
+RUN make assets
+
+# 2. Build the fleet binary with the bundled assets
+RUN make fleet
 
 # Stage 2: Create the final image
 FROM alpine:latest
