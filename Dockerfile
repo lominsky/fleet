@@ -11,7 +11,7 @@ COPY . .
 RUN make assets
 
 # 2. Build the fleet binary with the bundled assets
-RUN make fleet
+RUN go build -o fleet ./cmd/fleet
 
 # Stage 2: Create the final image
 FROM alpine:latest
