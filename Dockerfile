@@ -1,17 +1,17 @@
 # Stage 1: Build the binary
 FROM golang:1.26.1-alpine AS builder
 
-RUN apk add --no-cache make git nodejs npm python3 g++
+# 1. Install only what we need for the Go build
+RUN apk add --no-cache make git
 
 WORKDIR /app
 COPY . .
 
-# 1. Install frontend dependencies and build the assets
-# This creates the 'bindata' files that the Go compiler is panicking about missing
-RUN make deps-js
-RUN make assets
+# 2. Grab the pre-generated bindata files from the official image
+# This replaces the 'placeholder.go' with the actual UI assets
+COPY --from=fleetdm/fleet:latest /app/server/bindata/bindata.go ./server/bindata/bindata.go
 
-# 2. Build the fleet binary with the bundled assets
+# 3. Build the binary (no 'make assets' or 'npm' required!)
 RUN go build -o fleet ./cmd/fleet
 
 # Stage 2: Create the final image
