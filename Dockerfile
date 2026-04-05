@@ -1,14 +1,29 @@
-FROM alpine:3.23.3@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659
-LABEL maintainer="Fleet Developers"
+# Stage 1: Build the binary
+FROM golang:1.21-alpine AS builder
 
-RUN apk --update add ca-certificates
-RUN apk --no-cache add jq
+# Install build dependencies
+RUN apk add --no-cache make git
 
-# Create fleet group and user
-RUN addgroup -S fleet && adduser -S fleet -G fleet
+WORKDIR /app
 
+# Copy the source code
+COPY . .
+
+# Compile the fleet binary
+# Note: You might need to adjust this depending on Fleet's specific build flags
+RUN go build -o fleet ./cmd/fleet
+
+# Stage 2: Create the final image
+FROM alpine:latest
+
+# Create a non-root user for security
+RUN adduser -D fleet
 USER fleet
 
-COPY fleet /usr/bin/
+WORKDIR /home/fleet
 
+# Copy the binary from the builder stage
+COPY --from=builder /app/fleet /usr/bin/fleet
+
+# Set the entrypoint
 CMD ["fleet", "serve"]
