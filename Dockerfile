@@ -3,9 +3,14 @@ FROM node:20-alpine AS frontend-builder
 RUN apk add --no-cache make g++ python3 git libtool autoconf automake nasm
 WORKDIR /app
 COPY . .
-# Using --legacy-peer-deps is vital for Fleet's older React dependencies
+
+# 1. Install dependencies
 RUN npm install --legacy-peer-deps
-RUN npm run build 
+
+# 2. Increase Node memory limit and run the build
+# We use 'npx' to ensure it uses the local gulp/webpack version
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+RUN npx gulp default || npm run build
 
 # STAGE 2: Build the Go Backend
 FROM golang:1.26-alpine AS backend-builder
