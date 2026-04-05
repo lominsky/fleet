@@ -1,28 +1,23 @@
 # Stage 1: Build the binary
 FROM golang:1.26.1-alpine AS builder
 
-# 1. Install EVERYTHING needed for Go + Node.js Native Compilation
+# Install the "Build Essential" equivalents for Alpine
 RUN apk add --no-cache \
-    make \
-    git \
-    nodejs \
-    npm \
-    python3 \
-    g++ \
-    gcc \
-    libc-dev \
-    linux-headers
+    make git nodejs npm python3 g++ gcc libc-dev linux-headers \
+    libtool automake autoconf nasm
 
 WORKDIR /app
 COPY . .
 
-# 2. Build the Frontend (The "Assets")
-# We run these manually to ensure they complete before the Go build
-RUN npm install
-RUN npm run build  # Fleet usually maps 'make assets' to this or a gulp task
+# 1. Fleet's frontend often requires --legacy-peer-deps to handle 
+# version conflicts in its React components.
+RUN npm install --legacy-peer-deps
 
-# 3. Build the Go Binary
-# We use the -tags to ensure the assets are properly seen
+# 2. Generate the assets. Note: Fleet usually uses 'make assets' 
+# which calls a specialized internal tool.
+RUN make assets
+
+# 3. Build the Go binary
 RUN go build -o fleet ./cmd/fleet
 
 # Stage 2: Create the final image
