@@ -16,12 +16,16 @@ RUN go build -o fleet ./cmd/fleet
 # Stage 2: Create the final image
 FROM alpine:latest
 
-# 1. Create the user and the required directory
-RUN adduser -D fleet && \
-    mkdir -p /logs && \
-    chown -f fleet:fleet /logs
+# Define build arguments for UID/GID
+ARG USER_ID=1000
+ARG GROUP_ID=1000
 
-# 2. Switch to the fleet user
+# Create the group and user with specific IDs
+RUN addgroup -g ${GROUP_ID} fleet && \
+    adduser -D -u ${USER_ID} -G fleet fleet && \
+    mkdir -p /logs /data /vulndb && \
+    chown -R fleet:fleet /logs /data /vulndb
+
 USER fleet
 WORKDIR /home/fleet
 
