@@ -1,39 +1,33 @@
-# STAGE 1: Extract the "Good" Assets
-# We use the official image as a "parts bin"
-FROM fleetdm/fleet:latest AS official-fleet
-
-# STAGE 2: Build YOUR Custom Backend
+# STAGE 1: Build YOUR Custom Backend Logic
 FROM golang:1.23-alpine AS builder
-
-# 1. Install Go build tools
 RUN apk add --no-cache make git
-
 WORKDIR /app
 COPY . .
 
-# 2. THE SECRET SAUCE: 
-# Replace your local 'placeholder.go' with the actual compiled UI assets 
-# from the official image. This stops the "Assets may not be used..." panic.
-COPY --from=official-fleet /app/server/bindata/bindata.go ./server/bindata/bindata.go
+# We build the binary. Even though it has the "placeholder" assets, 
+# we are going to use it for the API/Logic.
+RUN go build -o fleet-custom ./cmd/fleet
 
-# 3. Build YOUR custom binary
-# The compiler will now see the real UI assets instead of the placeholder
-RUN go build -o fleet ./cmd/fleet
+# STAGE 2: Use the Official Image as the Base
+FROM fleetdm/fleet:latest
 
-# STAGE 3: Final Production Image
-FROM alpine:latest
-RUN apk add --no-cache ca-certificates
+# Switch to root to perform the swap and fix permissions
+USER root
 
-# Match your Synology UID (1026) to avoid permission errors
-RUN adduser -D -u 1026 fleet
-WORKDIR /home/fleet
+# 1. Move the official binary (which has the assets) to a backup location
+# 2. Copy YOUR custom binary into the official path
+COPY --from=builder /app/fleet-custom /usr/bin/fleet
 
-COPY --from=builder /app/fleet /usr/bin/fleet
-RUN chmod +x /usr/bin/fleet
+# 3. Fix Synology Permissions
+# We ensure the binary is executable and matches your Synology UID
+RUN chmod +x /usr/bin/fleet && \
+    adduser -D -u 1026 syno-louis || true
 
-# Ensure logging directory exists for the container
+# Ensure the log directory exists (if you still use it)
 RUN mkdir -p /logs && chown -R 1026 /logs
 
+# Switch to your Synology User
 USER 1026
+
 ENTRYPOINT ["/usr/bin/fleet"]
 CMD ["serve"]
