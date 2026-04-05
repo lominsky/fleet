@@ -16,14 +16,17 @@ RUN go build -o fleet ./cmd/fleet
 # Stage 2: Create the final image
 FROM alpine:latest
 
-# Create a non-root user for security
-RUN adduser -D fleet
-USER fleet
+# 1. Create the user and the required directory
+RUN adduser -D fleet && \
+    mkdir -p /logs && \
+    chown -f fleet:fleet /logs
 
+# 2. Switch to the fleet user
+USER fleet
 WORKDIR /home/fleet
 
-# Copy the binary from the builder stage
+# 3. Copy the binary
 COPY --from=builder /app/fleet /usr/bin/fleet
 
-# Set the entrypoint
+# 4. Set the entrypoint
 CMD ["fleet", "serve"]
