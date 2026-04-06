@@ -1,12 +1,15 @@
 # STAGE 1: Build YOUR Custom Backend Logic
 FROM golang:1.23-alpine AS builder
-RUN apk add --no-cache make git
+
+# Install the C-toolchain required for CGO (SQLite, etc.)
+RUN apk add --no-cache make git gcc musl-dev libc-dev
+
 WORKDIR /app
 COPY . .
 
-# We build the binary. Even though it has the "placeholder" assets, 
-# we are going to use it for the API/Logic.
-RUN go build -o fleet-custom ./cmd/fleet
+# Fleet requires CGO_ENABLED=1 for certain database drivers (like SQLite)
+# and needs the 'include' tags to find the bindata.
+RUN CGO_ENABLED=1 go build -o fleet-custom ./cmd/fleet
 
 # STAGE 2: Use the Official Image as the Base
 FROM fleetdm/fleet:latest
